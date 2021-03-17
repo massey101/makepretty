@@ -1,0 +1,70 @@
+#!/bin/python3
+import sys
+import os
+import re
+
+YELLOW = '\033[93m'
+RESET = '\033[39m'
+
+IGNORE_RE_LIST = [
+    r'^\s*File \'.*\' does not exist.',
+    r'^Reading makefiles',
+    r'^Updating makefiles',
+    r'^Updating goal targets',
+]
+
+IGNORE_TARGET_LIST = [
+    'all',
+]
+
+
+def myprint(string):
+    sys.stdout.write(f'{YELLOW}{string}{RESET}\n')
+
+
+def main():
+    targets = []
+    linenum = 0
+    for line in sys.stdin:
+        # The first 6 lines are just Makefile copyright info
+        if linenum < 6:
+            linenum += 1
+            continue
+
+        match = re.search(r'^\s*Must remake target \'(.*)\'', line)
+        if match is not None:
+            target = os.path.basename(match.group(1))
+            if target in IGNORE_TARGET_LIST:
+                continue
+            targets.append(target)
+            myprint(f'Building {target}')
+            continue
+
+        match = re.search(r'^\s*Successfully remade target file \'(.*)\'', line)
+        if match is not None:
+            target = os.path.basename(match.group(1))
+            if target in IGNORE_TARGET_LIST:
+                continue
+            myprint(f'Building {target} Done')
+            continue
+
+        ignore = False
+        for ignore_re in IGNORE_RE_LIST:
+            if re.search(ignore_re, line):
+                ignore = True
+                break
+        if ignore:
+            continue
+
+        sys.stdout.write(line)
+
+    if targets:
+        myprint('Build Summary:')
+        for target in targets:
+            if target in IGNORE_TARGET_LIST:
+                continue
+            myprint(f'    {target}')
+
+
+if __name__ == '__main__':
+    main()
